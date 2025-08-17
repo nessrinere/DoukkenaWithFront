@@ -1,0 +1,158 @@
+<!-- Modern Product Card -->
+<div class="product-card" [class.loading]="loading">
+  <!-- Product Image Container -->
+  <div class="product-image-container">
+    <img 
+      [src]="product.imageUrl || 'assets/images/placeholder.jpg'" 
+      [alt]="product.name"
+      class="product-image"
+      (load)="onImageLoad()"
+      (error)="onImageError()"
+    >
+    
+    <!-- Quick Actions Overlay -->
+    <div class="quick-actions">
+      <button 
+        class="quick-action-btn wishlist-btn" 
+        [class.active]="isInWishlist"
+        (click)="toggleWishlist($event)"
+        title="Add to Wishlist"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+      
+      <button 
+        class="quick-action-btn quick-view-btn" 
+        (click)="quickView($event)"
+        title="Quick View"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+          <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+      
+      <button 
+        class="quick-action-btn compare-btn" 
+        [class.active]="isInCompare"
+        (click)="toggleCompare($event)"
+        title="Add to Compare"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Sale Badge -->
+    <div class="sale-badge" *ngIf="product.discountPercentage && product.discountPercentage > 0">
+      -{{product.discountPercentage}}%
+    </div>
+
+    <!-- Out of Stock Badge -->
+    <div class="out-of-stock-badge" *ngIf="!product.inStock">
+      Out of Stock
+    </div>
+
+    <!-- Loading Skeleton -->
+    <div class="image-skeleton" *ngIf="loading">
+      <div class="skeleton-shimmer"></div>
+    </div>
+  </div>
+
+  <!-- Product Info -->
+  <div class="product-info">
+    <!-- Category -->
+    <div class="product-category" *ngIf="product.category">
+      {{product.category}}
+    </div>
+
+    <!-- Product Name -->
+    <h3 class="product-name">
+      <a [routerLink]="['/product', product.id]" class="product-link">
+        {{product.name}}
+      </a>
+    </h3>
+
+    <!-- Rating -->
+    <div class="product-rating" *ngIf="product.rating">
+      <div class="stars">
+        <svg 
+          *ngFor="let star of [1,2,3,4,5]" 
+          class="star" 
+          [class.filled]="star <= product.rating"
+          [class.half]="star === Math.ceil(product.rating) && product.rating % 1 !== 0"
+          viewBox="0 0 20 20" 
+          fill="currentColor"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+        </svg>
+      </div>
+      <span class="rating-count" *ngIf="product.reviewCount">
+        ({{product.reviewCount}})
+      </span>
+    </div>
+
+    <!-- Price -->
+    <div class="product-price">
+      <span class="current-price" [class.on-sale]="product.discountPercentage && product.discountPercentage > 0">
+        {{product.currentPrice | currency:'USD':'symbol':'1.2-2'}}
+      </span>
+      <span class="original-price" *ngIf="product.discountPercentage && product.discountPercentage > 0">
+        {{product.originalPrice | currency:'USD':'symbol':'1.2-2'}}
+      </span>
+    </div>
+
+    <!-- Product Variants (if any) -->
+    <div class="product-variants" *ngIf="product.variants && product.variants.length > 0">
+      <div class="variant-options">
+        <button 
+          *ngFor="let variant of product.variants.slice(0, 3)" 
+          class="variant-option"
+          [style.background-color]="variant.color"
+          [title]="variant.name"
+          (click)="selectVariant(variant)"
+        ></button>
+        <span class="more-variants" *ngIf="product.variants.length > 3">
+          +{{product.variants.length - 3}}
+        </span>
+      </div>
+    </div>
+
+    <!-- Add to Cart Button -->
+    <div class="product-actions">
+      <button 
+        class="add-to-cart-btn" 
+        [disabled]="!product.inStock || loading"
+        (click)="addToCart()"
+      >
+        <svg class="cart-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+        </svg>
+        <span *ngIf="product.inStock; else outOfStockText">
+          Add to Cart
+        </span>
+        <ng-template #outOfStockText>
+          Out of Stock
+        </ng-template>
+      </button>
+    </div>
+
+    <!-- Product Features -->
+    <div class="product-features" *ngIf="product.features && product.features.length > 0">
+      <span 
+        *ngFor="let feature of product.features.slice(0, 2)" 
+        class="feature-tag"
+      >
+        {{feature}}
+      </span>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-overlay" *ngIf="loading">
+    <div class="loading-spinner"></div>
+  </div>
+</div> 

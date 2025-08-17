@@ -1,0 +1,83 @@
+<div class="chatbot-container">
+  <!-- Chat Toggle Button -->
+  <button 
+    class="chat-toggle-btn"
+    (click)="toggleChat()"
+    [class.active]="isOpen"
+    aria-label="Toggle chat">
+    <i class="material-icons" *ngIf="!isOpen">chat</i>
+    <i class="material-icons" *ngIf="isOpen">close</i>
+  </button>
+
+  <!-- Chat Window -->
+  <div class="chat-window" [class.open]="isOpen">
+    <!-- Chat Header -->
+    <div class="chat-header">
+      <div class="header-content">
+        <i class="material-icons">support_agent</i>
+        <div class="header-text">
+          <h3>Product Assistant</h3>
+          <span class="status">Online</span>
+        </div>
+      </div>
+      <button class="clear-btn" (click)="clearChat()" title="Clear chat">
+        <i class="material-icons">refresh</i>
+      </button>
+    </div>
+
+    <!-- Messages Container -->
+    <div class="messages-container" #messagesContainer>
+      <div 
+        *ngFor="let message of messages" 
+        class="message"
+        [class.user-message]="message.role === 'user'"
+        [class.assistant-message]="message.role === 'assistant'">
+        
+        <div class="message-avatar">
+          <i class="material-icons" *ngIf="message.role === 'user'">person</i>
+          <i class="material-icons" *ngIf="message.role === 'assistant'">smart_toy</i>
+        </div>
+        
+        <div class="message-content">
+          <div class="message-text">{{ message.content }}</div>
+          <div class="message-time">
+            {{ message.timestamp | date:'short' }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div *ngIf="isLoading" class="message assistant-message loading">
+        <div class="message-avatar">
+          <i class="material-icons">smart_toy</i>
+        </div>
+        <div class="message-content">
+          <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="input-container">
+        <textarea
+          [(ngModel)]="userInput"
+          (keypress)="onKeyPress($event)"
+          placeholder="Ask me about our products..."
+          class="message-input"
+          rows="1"
+          [disabled]="isLoading"></textarea>
+        <button 
+          class="send-btn"
+          (click)="sendMessage()"
+          [disabled]="!userInput.trim() || isLoading">
+          <i class="material-icons">send</i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

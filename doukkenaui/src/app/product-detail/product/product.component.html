@@ -1,0 +1,286 @@
+<div class="product-page">
+  <!-- Main Product Section -->
+  <div class="product-main">
+    <div class="product-container">
+      <!-- Left: Product Images -->
+      <div class="product-images">
+        <img src="{{imageSrc}}" alt="{{details.Name}}" class="main-image" />
+      </div>
+  
+      <!-- Right: Product Info -->
+      <div class="product-info">
+        <div class="product-header">
+          <h1 class="product-title">{{details.Name}}</h1>
+          <div class="product-meta">
+            <span class="sku">SKU: {{details.Sku}}</span>
+            <span class="vendor">Vendor: {{details.vendorName}}</span>
+          </div>
+        </div>
+
+        <div class="product-description">
+          {{details.FullDescription}}
+        </div>
+  
+        <div class="product-price">
+          <span class="price-amount">{{getTotalPrice()}} DNT</span>
+        </div>
+        
+        <!-- Product Attributes Section -->
+        <div class="product-attributes" *ngIf="productAttributes.length > 0">
+          <div class="attribute-group" *ngFor="let attribute of productAttributes">
+            <label class="attribute-label">
+              {{attribute.AttributeName}}
+              <span class="required" *ngIf="attribute.IsRequired">*</span>
+            </label>
+            
+            <!-- Single Select Attributes (Dropdown, Radio, etc.) -->
+            <select 
+              *ngIf="isSingleSelectAttribute(attribute.AttributeControlType)"
+              class="attribute-select" 
+              [value]="getSelectedAttributeValue(attribute.AttributeId) || getPreselectedValue(attribute)"
+              (change)="onAttributeChange(attribute.AttributeId, $event)">
+              <option value="" disabled [selected]="!getSelectedAttributeValue(attribute.AttributeId) && !getPreselectedValue(attribute)">
+                Choose {{attribute.AttributeName}}
+              </option>
+              <option 
+                *ngFor="let value of attribute.Values" 
+                [value]="value.Id"
+                [selected]="value.IsPreSelected">
+                {{value.Name}}
+                <span *ngIf="value.PriceAdjustment !== 0"> 
+                  ({{value.PriceAdjustment > 0 ? '+' : ''}}{{value.PriceAdjustment}} DNT)
+                </span>
+              </option>
+            </select>
+            
+            <!-- Multi Select Attributes (Checkboxes) -->
+            <div *ngIf="isMultiSelectAttribute(attribute.AttributeControlType)" class="checkbox-group">
+              <div *ngFor="let value of attribute.Values" class="checkbox-item">
+                <input 
+                  type="checkbox" 
+                  [id]="'attr_' + attribute.AttributeId + '_' + value.Id"
+                  [value]="value.Id"
+                  [checked]="isValueSelected(attribute.AttributeId, value.Id) || value.IsPreSelected"
+                  (change)="onCheckboxChange(attribute.AttributeId, value.Id, $event)">
+                <label [for]="'attr_' + attribute.AttributeId + '_' + value.Id">
+                  {{value.Name}}
+                  <span *ngIf="value.PriceAdjustment !== 0"> 
+                    ({{value.PriceAdjustment > 0 ? '+' : ''}}{{value.PriceAdjustment}} DNT)
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="quantity-section">
+          <h4 class="quantity-title">Select Quantity</h4>
+          <div class="quantity-selector">
+            <button class="qty-btn" (click)="decreaseQty()">-</button>
+            <input type="text" [value]="quantity" readonly class="qty-input" />
+            <button class="qty-btn" (click)="increaseQty()">+</button>
+          </div>
+        </div>
+  
+        <div class="action-buttons">
+          <button class="btn btn-primary" (click)="buyNow()" routerLink="/command/checkout">
+            <i class="material-icons">flash_on</i>
+            Buy Now
+          </button>
+          <button class="btn btn-secondary" (click)="addToCart()">
+            <i class="material-icons">shopping_cart</i>
+            Add to Cart
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Details & Reviews Tabs -->
+  <div class="product-tabs">
+    <div class="tabs-header">
+      <button class="tab-btn active" (click)="setActiveTab('details')">
+        <i class="material-icons">info</i>
+        Product Details
+      </button>
+      <button class="tab-btn" (click)="setActiveTab('reviews')">
+        <i class="material-icons">star</i>
+        Reviews ({{reviews.length}})
+      </button>
+    </div>
+
+    <div class="tab-content">
+      <!-- Product Details Tab -->
+      <div class="tab-panel" [class.active]="activeTab === 'details'">
+        <div class="details-content">
+          <div class="detail-section">
+            <h3>Product Information</h3>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">SKU:</span>
+                <span class="detail-value">{{details.Sku}}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Vendor:</span>
+                <span class="detail-value">{{details.vendorName}}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Price:</span>
+                <span class="detail-value">{{getTotalPrice()}} DNT</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="detail-section">
+            <h3>Description</h3>
+            <p>{{details.FullDescription}}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reviews Tab -->
+      <div class="tab-panel" [class.active]="activeTab === 'reviews'">
+        <div class="reviews-content">
+          <!-- Reviews Header -->
+          <div class="reviews-header">
+            <div class="reviews-summary">
+              <h3>Customer Reviews</h3>
+              <p class="reviews-count">{{reviews.length}} reviews</p>
+            </div>
+            <button class="write-review-btn" (click)="toggleReviewForm()">
+              <i class="material-icons">edit</i>
+              {{ showReviewForm ? 'Cancel' : 'Write a Review' }}
+            </button>
+          </div>
+
+          <!-- Submit Message -->
+          <div *ngIf="submitMessage" class="submit-message" [ngClass]="{'success': submitMessage.includes('successfully'), 'error': !submitMessage.includes('successfully')}">
+            {{submitMessage}}
+          </div>
+
+          <!-- Review Form -->
+          <div *ngIf="showReviewForm" class="review-form">
+            <h4>Write Your Review</h4>
+            <form [formGroup]="reviewForm" (ngSubmit)="onSubmitReview()">
+              <div class="form-group">
+                <label for="title">Review Title *</label>
+                <input 
+                  id="title" 
+                  type="text" 
+                  formControlName="title" 
+                  placeholder="Enter a title for your review"
+                  [ngClass]="{'is-invalid': f['title'].invalid && f['title'].touched}"
+                />
+                <div *ngIf="f['title'].invalid && f['title'].touched" class="error-message">
+                  <div *ngIf="f['title'].errors?.['required']">Title is required.</div>
+                  <div *ngIf="f['title'].errors?.['minlength']">Title must be at least 3 characters.</div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="rating">Rating *</label>
+                <select id="rating" formControlName="rating" class="rating-select">
+                  <option value="5">★★★★★ (5 stars)</option>
+                  <option value="4">★★★★☆ (4 stars)</option>
+                  <option value="3">★★★☆☆ (3 stars)</option>
+                  <option value="2">★★☆☆☆ (2 stars)</option>
+                  <option value="1">★☆☆☆☆ (1 star)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="reviewText">Your Review *</label>
+                <textarea 
+                  id="reviewText" 
+                  formControlName="reviewText" 
+                  placeholder="Share your experience with this product..."
+                  rows="4"
+                  [ngClass]="{'is-invalid': f['reviewText'].invalid && f['reviewText'].touched}"
+                ></textarea>
+                <div *ngIf="f['reviewText'].invalid && f['reviewText'].touched" class="error-message">
+                  <div *ngIf="f['reviewText'].errors?.['required']">Review text is required.</div>
+                  <div *ngIf="f['reviewText'].errors?.['minlength']">Review must be at least 10 characters.</div>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="submit-review-btn" [disabled]="reviewForm.invalid">
+                  Submit Review
+                </button>
+                <button type="button" class="cancel-btn" (click)="toggleReviewForm()">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Existing Reviews -->
+          <div class="reviews-list">
+            <div *ngIf="reviews.length === 0" class="no-reviews">
+              <div class="no-reviews-content">
+                <i class="material-icons">star_border</i>
+                <h4>No reviews yet</h4>
+                <p>Be the first to review this product!</p>
+              </div>
+            </div>
+            
+            <div *ngFor="let review of reviews" class="review-item">
+              <div class="review-header">
+                <div class="review-rating">{{getStars(review.Rating)}}</div>
+                <div class="review-date">{{review.CreatedOnUtc | date:'mediumDate'}}</div>
+              </div>
+              <h5 class="review-title">{{review.Title}}</h5>
+              <p class="review-text">{{review.ReviewText}}</p>
+              <div class="review-author">By: {{review.Customer}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cart Popup -->
+<div class="cart-popup-overlay" *ngIf="showCartPopup" (click)="closeCartPopup()">
+  <div class="cart-popup" (click)="$event.stopPropagation()">
+    <div class="cart-header">
+      <h3>Shopping Cart</h3>
+      <button class="close-btn" (click)="closeCartPopup()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    
+    <div class="cart-content">
+      <div class="cart-items" *ngIf="cartItems.length > 0; else emptyCart">
+        <div class="cart-item" *ngFor="let item of cartItems">
+          <div class="item-info">
+            <h4>{{ item.Name }}</h4>
+            <p class="item-price">{{ item.Price }} DNT</p>
+            <p class="item-quantity">Quantity: {{ item.quantity }}</p>
+          </div>
+        </div>
+      </div>
+      
+      <ng-template #emptyCart>
+        <div class="empty-cart">
+          <p>Your cart is empty</p>
+        </div>
+      </ng-template>
+    </div>
+    
+    <div class="cart-footer" *ngIf="cartItems.length > 0">
+      <div class="total-price">
+        <strong>Total: {{ getTotalPrice().toFixed(2) }} DNT</strong>
+      </div>
+      <div class="cart-actions">
+        <button class="view-cart-btn" routerLink="/home/cart" (click)="closeCartPopup()">View Cart</button>
+        <button class="checkout-btn" routerLink="/command/checkout" (click)="closeCartPopup()">Checkout</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div><app-cart></app-cart></div>
+<div><app-footer></app-footer></div>
+
+

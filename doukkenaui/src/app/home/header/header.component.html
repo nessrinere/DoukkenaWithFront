@@ -1,0 +1,116 @@
+
+
+<!-- Rest of the content remains the same -->
+<!-- Promo Banner -->
+<section class="promo-banner header-bg">
+  <div class="promo-content">
+    <div class="promo-text">
+      <h2>Discover Amazing Products</h2>
+      <p>Explore our wide range of quality products with great deals and fast delivery</p>
+      <button class="btn" (click)="showAllProducts()" [disabled]="isLoadingProducts">
+        <span *ngIf="!isLoadingProducts">Shop Now</span>
+        <span *ngIf="isLoadingProducts">
+          <i class="material-icons" style="animation: spin 1s linear infinite;">refresh</i>
+          Loading...
+        </span>
+      </button>
+    </div>
+    <div class="promo-image" *ngIf="products && products.length > 0">
+      <img 
+        [src]="'https://localhost:59579/images/thumbs/' + ('0000000' + products[0].pictureId).slice(-7) + '_' + products[0].seoFilename + getImageExtension(products[0].mimeType)"
+        [alt]="products[0].Name"
+        [routerLink]="['/product/product', products[0].Id]"
+        style="cursor: pointer;"
+      />
+    </div>
+    <div class="promo-image" *ngIf="!products || products.length === 0">
+      <img src="assets/image.png" alt="Featured Product" />
+    </div>
+  </div>
+</section>
+
+<!-- After the promo banner section, add this: -->
+<div class="content-container">
+  <div class="sidebar">
+    <app-filter (filterChange)="handleFilterResults($event)"></app-filter>
+  </div>
+  
+  <!-- Loading indicator -->
+  <div *ngIf="isLoadingProducts" class="loading-container">
+    <div class="loading-spinner">
+      <i class="material-icons" style="animation: spin 1s linear infinite; font-size: 48px; color: #22c55e;">refresh</i>
+      <p>Loading products...</p>
+    </div>
+  </div>
+  
+  <!-- Products Grid -->
+  <section id="products-section" class="products-grid p-2" *ngIf="products && products.length && !isLoadingProducts">
+    <div class="product-card shadow rounded" *ngFor="let product of products; trackBy: trackByProductId">
+      <img
+        [src]="'https://localhost:59579/images/thumbs/' + ('0000000' + product.pictureId).slice(-7) + '_' + product.seoFilename + getImageExtension(product.mimeType)"
+        [routerLink]="['/product/product', product.Id]"
+        [queryParams]="{ image: ('0000000' + product.pictureId).slice(-7) + '_' + product.seoFilename + getImageExtension(product.mimeType) }"
+        alt="{{ product.Name }}"
+        class="product-image mb-2 rounded"
+        style="width: 100%; height: 220px; object-fit: cover; background: #f3f4f6;"
+      />
+      <h3 class="mt-2" style="font-size: 1.2rem; font-weight: 600;">{{ product.Name }}</h3>
+      <p class="price" style="color: #22c55e; font-size: 1.1rem; font-weight: 700;">DT{{ product.Price }}</p>
+      
+      <!-- Rating Display -->
+      <div class="rating-container mt-2" *ngIf="productRatings[product.Id]">
+        <div class="stars">
+          <i class="material-icons star" 
+             *ngFor="let star of getStarIcons(productRatings[product.Id].rating)"
+             [class.filled]="star === 'star'"
+             [class.half]="star === 'star_half'"
+             [class.empty]="star === 'star_border'"
+             style="color: #22c55e;">{{ star }}</i>
+        </div>
+        <span class="rating-text" style="color: #888; font-size: 0.95em;">({{ productRatings[product.Id].total }} reviews)</span>
+      </div>
+      
+      <!-- Action Buttons Container -->
+      <div class="action-buttons mt-2" style="display: flex; align-items: center; gap: 10px;">
+        <button class="btn add-to-cart-btn" (click)="addToCart(product)" style="flex: 1;">
+          <i class="material-icons" style="vertical-align: middle;">shopping_cart</i>
+          Add to Cart
+        </button>
+        
+        <!-- Wishlist Icon with Constructor-based functionality -->
+        <div class="wishlist-container">
+          <i class="material-icons wishlist-icon" 
+             [class.in-wishlist]="isInWishlist(product.Id)"
+             [class.loading]="wishlistLoading[product.Id]"
+             [class.not-in-wishlist]="!isInWishlist(product.Id)"
+             (click)="toggleWishlist(product, $event)"
+             [title]="isInWishlist(product.Id) ? 'Remove from wishlist' : 'Add to wishlist'">
+            <span *ngIf="!wishlistLoading[product.Id]">
+              {{ isInWishlist(product.Id) ? 'favorite' : 'favorite_border' }}
+            </span>
+            <span *ngIf="wishlistLoading[product.Id]" class="loading-spinner">
+              refresh
+            </span>
+          </i>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- No products message -->
+  <div *ngIf="!products || products.length === 0 && !isLoadingProducts" class="no-products">
+    <p>No products available at the moment.</p>
+  </div>
+</div>
+
+<!-- Add this section after the products grid -->
+<section class="featured-recommendations">
+  <div id="homepage-recommendations" class="recommendations-grid"></div>
+</section>
+
+<div>
+  <app-cart></app-cart>
+</div>
+<div>
+  <app-footer></app-footer>
+</div>

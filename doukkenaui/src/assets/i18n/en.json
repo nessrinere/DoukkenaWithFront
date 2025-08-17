@@ -1,0 +1,32 @@
+{
+  "HEADER": {
+    "HOME": "Home",
+    "PRODUCTS": "Products",
+    "CART": "Cart",
+    "LOGIN": "Login",
+    "REGISTER": "Register",
+    "LOGOUT": "Logout",
+    "SEARCH": "Search products..."
+  },
+  "PRODUCT": {
+    "ADD_TO_CART": "Add to Cart",
+    "PRICE": "Price",
+    "QUANTITY": "Quantity",
+    "DESCRIPTION": "Description",
+    "REVIEWS": "Reviews"
+  },
+  "CART": {
+    "EMPTY": "Your cart is empty",
+    "TOTAL": "Total",
+    "CHECKOUT": "Checkout",
+    "REMOVE": "Remove"
+  },
+  "AUTH": {
+    "EMAIL": "Email",
+    "PASSWORD": "Password",
+    "CONFIRM_PASSWORD": "Confirm Password",
+    "LOGIN": "Login",
+    "REGISTER": "Register",
+    "FORGOT_PASSWORD": "Forgot Password?"
+  }
+}

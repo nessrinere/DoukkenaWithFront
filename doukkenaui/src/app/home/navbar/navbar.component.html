@@ -1,0 +1,180 @@
+<header class="header shadow p-2" style="background: #fff; display: flex; align-items: center; justify-content: space-between; border-radius: 1.5em; margin-bottom: 2em;">
+  <div class="left-section" style="display: flex; align-items: center; gap: 2em;">
+    <img src="assets/logo.png" alt="Logo" class="logo" style="height: 48px; width: auto; border-radius: 1em; box-shadow: 0 2px 8px rgba(34,197,94,0.08);" />
+    <div class="categories-dropdown" style="position: relative;">
+      <button class="categories-btn btn" (click)="toggleCategoriesDropdown()" style="background: #22c55e; color: #fff; font-weight: 600;">
+        <span>Categories</span>
+        <i class="material-icons dropdown-arrow" [class.rotated]="showCategoriesDropdown">keyboard_arrow_down</i>
+      </button>
+      <div class="dropdown-menu shadow rounded" [class.show]="showCategoriesDropdown" style="background: #fff; min-width: 200px; position: absolute; z-index: 10;">
+        <a class="dropdown-item" (click)="showAllProducts(); toggleCategoriesDropdown()" style="cursor: pointer; font-weight: bold; color: #22c55e;">All Products</a>
+        <ng-container *ngFor="let category of categories">
+          <a class="dropdown-item parent-category" (click)="loadProductsByCategory(category.Id); toggleCategoriesDropdown()" style="cursor: pointer; color: #222;">
+            {{ category.Name }}
+            <i class="material-icons" *ngIf="category.Children?.length" style="color: #22c55e;">chevron_right</i>
+          </a>
+          <div class="submenu" *ngIf="category.Children?.length">
+            <a class="dropdown-item child-category" *ngFor="let child of category.Children" 
+               (click)="loadProductsByCategory(child.Id); toggleCategoriesDropdown()" 
+               style="cursor: pointer; color: #22c55e;">
+              {{ child.Name }}
+            </a>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+  
+  <div class="right-section" style="display: flex; align-items: center; gap: 1.5em;">
+    <div class="search-container" style="display: flex; align-items: center; background: #f3f4f6; border-radius: 2em; padding: 0.25em 1em; box-shadow: 0 1px 4px rgba(34,197,94,0.04); position: relative;">
+      <input
+        type="text"
+        class="search-bar"
+        [(ngModel)]="searchTerm"
+        (input)="onInputChange(searchTerm)"
+        placeholder="Search for products"
+        style="border: none; background: transparent; outline: none; min-width: 200px;"
+        autocomplete="off"
+      />
+      <button class="search-button btn" (click)="searchProducts()" style="background: #22c55e; color: #fff; border-radius: 2em; padding: 0.5em 1.2em; margin-left: 0.5em;">
+        <i class="material-icons">search</i>
+      </button>
+      <!-- Suggestions Dropdown -->
+      <ul *ngIf="suggestions && suggestions.length > 0" class="suggestions-dropdown" style="position: absolute; top: 42px; left: 0; right: 0; z-index: 10; background: #fff; border-radius: 1em; box-shadow: 0 2px 8px rgba(34,197,94,0.08); list-style: none; margin: 0; padding: 0.5em 0;">
+        <li *ngFor="let suggestion of suggestions" (click)="searchTerm = suggestion.name; searchProducts()" style="padding: 0.5em 1em; cursor: pointer; color: #222;">
+          {{ suggestion.name }}
+        </li>
+      </ul>
+    </div>
+    
+    <!-- User Actions -->
+    <div class="user-actions" style="display: flex; align-items: center; gap: 1em;">
+      <!-- Logout button (only show when logged in) -->
+      <button 
+        *ngIf="isLoggedIn" 
+        (click)="logout()" 
+        class="action-btn logout-btn"
+        title="Logout"
+        style="background: #ef4444; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease;"
+      >
+        <i class="material-icons" style="font-size: 20px;">logout</i>
+      </button>
+      
+      <!-- Login/Profile button -->
+      <button 
+        class="action-btn profile-btn" 
+        (click)="showLogin = true"
+        title="Login / Profile"
+        style="background: #22c55e; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease;"
+      >
+        <i class="material-icons" style="font-size: 20px;">person</i>
+      </button>
+      
+      <!-- Cart button -->
+      <div class="cart-container" style="position: relative;">
+        <button 
+          class="action-btn cart-btn" 
+          (click)="toggleCart()"
+          title="Shopping Cart"
+          style="background: #22c55e; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; position: relative;"
+        >
+          <i class="material-icons" style="font-size: 20px;">shopping_cart</i>
+          <span *ngIf="cartItemsCount > 0" class="badge" style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+            {{ cartItemsCount }}
+          </span>
+        </button>
+        <!-- Cart popup component -->
+        <app-cartpop #cartPopup></app-cartpop>
+      </div>
+      
+      <!-- Wishlist button -->
+      <div class="wishlist-container" style="position: relative;">
+        <button 
+          class="action-btn wishlist-btn" 
+          (click)="toggleWishlist()"
+          title="Wishlist"
+          [class.active]="showWishlist"
+          style="background: #22c55e; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; position: relative;"
+        >
+          <i class="material-icons" style="font-size: 20px;">
+            {{ wishlistItemsCount > 0 ? 'favorite' : 'favorite_border' }}
+          </i>
+          <span *ngIf="wishlistItemsCount > 0" class="badge" style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
+            {{ wishlistItemsCount }}
+          </span>
+        </button>
+        
+        <!-- Wishlist popup component -->
+        <app-wishlistpop 
+          #wishlistPopup
+          [customerId]="customerId"
+          (itemRemoved)="onWishlistItemRemoved()"
+          (itemAddedToCart)="onWishlistItemAddedToCart()"
+          (wishlistToggled)="onWishlistToggled($event)"
+          *ngIf="showWishlist">
+        </app-wishlistpop>
+      </div>
+    </div>
+    
+    <!-- Login modal -->
+    <app-login
+      *ngIf="showLogin"
+      (close)="showLogin = false"
+      (loginSuccess)="onLoginSuccess($event)">
+    </app-login>
+  </div>
+</header>
+
+<!-- Products grid section -->
+<section id="products-section" class="products-grid" *ngIf="products && products.length">
+  <div class="product-card" *ngFor="let product of products">
+    <div class="product-image-container" style="position: relative;">
+      <img
+        [src]="'https://localhost:59579/images/thumbs/' + ('0000000' + product.pictureId).slice(-7) + '_' + product.seoFilename + getImageExtension(product.mimeType)"
+        [routerLink]="['/product/product', product.Id]"
+        [queryParams]="{ image: ('0000000' + product.pictureId).slice(-7) + '_' + product.seoFilename + getImageExtension(product.mimeType) }"
+        alt="{{ product.Name }}"
+        class="product-image"
+        (error)="handleImageError($event)"
+      />
+      
+      <!-- Wishlist heart icon -->
+      <button 
+        class="wishlist-heart"
+        (click)="isInWishlist(product.Id) ? removeFromWishlist(product.Id) : addToWishlist(product.Id)"
+        [class.active]="isInWishlist(product.Id)"
+        style="position: absolute; top: 10px; right: 10px; background: rgba(255, 255, 255, 0.9); border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);"
+      >
+        <i class="material-icons" [style.color]="isInWishlist(product.Id) ? '#ef4444' : '#6b7280'">
+          {{ isInWishlist(product.Id) ? 'favorite' : 'favorite_border' }}
+        </i>
+      </button>
+    </div>
+    
+    <div class="product-info" style="padding: 1rem;">
+      <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-weight: 600; color: #374151;">{{ product.Name }}</h3>
+      <p class="price" style="margin: 0 0 0.5rem 0; color: #22c55e; font-weight: 700; font-size: 1.1rem;">DT{{ product.Price }}</p>
+      
+      <!-- Rating Display -->
+      <div class="rating-container" *ngIf="productRatings[product.Id]" style="margin-bottom: 1rem;">
+        <div class="stars" style="display: flex; align-items: center; gap: 2px;">
+          <span *ngFor="let star of [1, 2, 3, 4, 5]" class="star">
+            <i class="material-icons" 
+               [ngClass]="{
+                 'filled': star <= productRatings[product.Id].rating,
+                 'half-filled': star - 0.5 <= productRatings[product.Id].rating && star > productRatings[product.Id].rating
+               }"
+               style="font-size: 16px; color: #fbbf24;">
+              {{ star <= productRatings[product.Id].rating ? 'star' : (star - 0.5 <= productRatings[product.Id].rating ? 'star_half' : 'star_border') }}
+            </i>
+          </span>
+          <span class="rating-count" style="margin-left: 0.5rem; color: #6b7280; font-size: 0.9rem;">({{ productRatings[product.Id].total }})</span>
+        </div>
+      </div>
+      
+      <button class="add-to-cart" [routerLink]="['/product/product', product.Id]" style="width: 100%; background: #22c55e; color: #fff; border: none; padding: 0.75rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">
+        View Details
+      </button>
+    </div>
+  </div>
+</section>

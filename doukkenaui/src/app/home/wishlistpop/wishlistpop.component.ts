@@ -1,0 +1,347 @@
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { WishlistService, WishlistItem } from '../../services/wishlist.service';
+
+@Component({
+  selector: 'app-wishlistpop',
+  templateUrl: './wishlistpop.component.html',
+  styleUrls: ['./wishlistpop.component.css']
+})
+export class WishlistpopComponent implements OnInit, OnDestroy {
+  @Input() customerId: number | null = null;
+  @Output() itemRemoved = new EventEmitter<void>();
+  @Output() itemAddedToCart = new EventEmitter<void>();
+  @Output() wishlistToggled = new EventEmitter<boolean>();
+  
+  wishlistItems: WishlistItem[] = [];
+  isLoading: boolean = false;
+  errorMessage: string | null = null;
+  isWishlistOpen: boolean = false;
+  totalItems: number = 0;
+  subtotal: number = 0;
+  isLoggedIn: boolean = false;
+  isRemoving: boolean = false;
+  
+  private wishlistSubscription?: Subscription;
+  
+  constructor(
+    private wishlistService: WishlistService,
+    private router: Router
+  ) { }
+
+  ngOnInit(): void {
+    this.initializeComponent();
+  }
+
+  ngOnDestroy(): void {
+    this.cleanup();
+  }
+
+  private initializeComponent(): void {
+    this.loadCustomerId();
+    this.checkLoginStatus();
+    this.subscribeToWishlist();
+    this.isWishlistOpen = true;
+    
+    if (this.isLoggedIn && this.customerId) {
+      this.loadWishlistItems();
+    }
+  }
+
+  private cleanup(): void {
+    if (this.wishlistSubscription) {
+      this.wishlistSubscription.unsubscribe();
+    }
+  }
+
+  private subscribeToWishlist(): void {
+    this.wishlistSubscription = this.wishlistService.wishlistItems$.subscribe({
+      next: (items) => {
+        this.wishlistItems = items;
+        this.totalItems = this.wishlistService.totalItems;
+        this.subtotal = this.wishlistService.subtotal;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error in wishlist subscription:', error);
+        this.errorMessage = 'Failed to load wishlist items.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  private checkLoginStatus(): void {
+    const customerData = localStorage.getItem('customer');
+    this.isLoggedIn = !!customerData;
+    
+    if (!this.isLoggedIn) {
+      this.customerId = null;
+      this.wishlistItems = [];
+      this.totalItems = 0;
+      this.subtotal = 0;
+    }
+  }
+
+  loadCustomerId(): void {
+    if (this.customerId === null) {
+      const customerData = localStorage.getItem('customer');
+      if (customerData) {
+        try {
+          const customer = JSON.parse(customerData);
+          this.customerId = customer.id;
+          this.isLoggedIn = true;
+        } catch (e) {
+          console.error('Error parsing customer data:', e);
+          this.isLoggedIn = false;
+          this.customerId = null;
+        }
+      } else {
+        this.isLoggedIn = false;
+        this.customerId = null;
+      }
+    }
+  }
+
+  toggleWishlist(): void {
+    this.isWishlistOpen = !this.isWishlistOpen;
+    this.wishlistToggled.emit(this.isWishlistOpen);
+    
+    if (this.isWishlistOpen) {
+      this.checkLoginStatus();
+      if (this.isLoggedIn && this.customerId) {
+        this.loadWishlistItems();
+      }
+    }
+  }
+
+  closeWishlist(): void {
+    this.isWishlistOpen = false;
+    this.wishlistToggled.emit(false);
+    this.clearMessages();
+  }
+
+  loadWishlistItems(): void {
+    if (!this.customerId) {
+      this.errorMessage = 'Please login to view your wishlist';
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = null;
+    this.wishlistService.loadWishlistItems();
+  }
+
+  addToCart(item: WishlistItem): void {
+    if (!this.customerId) {
+      this.errorMessage = 'Please login to add items to cart';
+      return;
+    }
+    
+    this.clearMessages();
+    this.isLoading = true;
+    
+    this.wishlistService.moveToCart(item).subscribe({
+      next: () => {
+        this.showSuccessMessage('success-message');
+        this.itemAddedToCart.emit();
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error adding item to cart:', error);
+        this.errorMessage = 'Failed to add item to cart. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  removeFromWishlist(productId: number): void {
+    console.log('=== DEBUG: removeFromWishlist called ===');
+    console.log('productId:', productId);
+    console.log('customerId:', this.customerId);
+    console.log('isRemoving:', this.isRemoving);
+
+    if (!this.customerId) {
+      console.log('ERROR: No customer ID');
+      this.errorMessage = 'Please login to remove items from wishlist';
+      return;
+    }
+
+    if (this.isRemoving) {
+      console.log('ERROR: Already removing an item');
+      return;
+    }
+
+    // Temporarily remove confirmation for debugging
+    // if (!confirm('Are you sure you want to remove this item from your wishlist?')) {
+    //   return;
+    // }
+
+    this.isRemoving = true;
+    this.clearMessages();
+
+    console.log('Making API call to remove item...');
+    
+    this.wishlistService.removeFromWishlist(productId).subscribe({
+      next: (response) => {
+        console.log('SUCCESS: Item removed successfully', response);
+        this.showSuccessMessage('success-remove-message');
+        this.itemRemoved.emit();
+        this.isRemoving = false;
+        // Force reload the wishlist to ensure UI is updated
+        setTimeout(() => {
+          this.loadWishlistItems();
+        }, 500);
+      },
+      error: (error) => {
+        console.error('ERROR: Failed to remove item', error);
+        console.error('Error details:', {
+          status: error.status,
+          statusText: error.statusText,
+          message: error.message,
+          error: error.error
+        });
+        
+        let errorMsg = 'Failed to remove item from wishlist.';
+        if (error.status === 404) {
+          errorMsg = 'Item not found in wishlist.';
+        } else if (error.status === 401) {
+          errorMsg = 'Please login to remove items from wishlist.';
+        } else if (error.status === 500) {
+          errorMsg = 'Server error. Please try again later.';
+        } else if (error.status === 0) {
+          errorMsg = 'Network error. Please check your connection.';
+        }
+        
+        this.errorMessage = errorMsg;
+        this.isRemoving = false;
+      }
+    });
+  }
+
+  clearWishlist(): void {
+    if (!this.customerId || this.isLoading) return;
+
+    if (!confirm('Are you sure you want to clear your entire wishlist?')) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.clearMessages();
+
+    this.wishlistService.clearWishlist().subscribe({
+      next: () => {
+        this.showSuccessMessage('success-clear-message');
+        this.itemRemoved.emit();
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error clearing wishlist:', error);
+        this.errorMessage = 'Failed to clear wishlist. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  addAllToCart(): void {
+    if (!this.customerId || this.wishlistItems.length === 0 || this.isLoading) return;
+
+    if (!confirm(`Add all ${this.wishlistItems.length} items to your cart?`)) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.clearMessages();
+    
+    this.wishlistService.moveAllToCart().subscribe({
+      next: () => {
+        this.showSuccessMessage('success-all-message');
+        this.itemAddedToCart.emit();
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error adding items to cart:', error);
+        this.errorMessage = 'Failed to add all items to cart. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  navigateToLogin(): void {
+    this.closeWishlist();
+    this.router.navigate(['/login']);
+  }
+
+  navigateToWishlist(): void {
+    this.closeWishlist();
+    this.router.navigate(['/wishlist']);
+  }
+
+  navigateToProduct(productId: number): void {
+    this.closeWishlist();
+    this.router.navigate(['/product/product', productId]);
+  }
+
+  private showSuccessMessage(messageId: string): void {
+    const successMessage = document.getElementById(messageId);
+    if (successMessage) {
+      successMessage.style.display = 'block';
+      setTimeout(() => {
+        if (successMessage) {
+          successMessage.style.display = 'none';
+        }
+      }, 3000);
+    }
+  }
+
+  private clearMessages(): void {
+    this.errorMessage = null;
+    // Hide all success messages
+    const successMessages = ['success-message', 'success-all-message', 'success-remove-message', 'success-clear-message'];
+    successMessages.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.style.display = 'none';
+      }
+    });
+  }
+
+  getImageUrl(item: WishlistItem): string {
+    if (item.PictureId) {
+      return `https://localhost:59579/images/thumbs/${('0000000' + item.PictureId).slice(-7)}_${item.SeoFilename}${this.getImageExtension(item.MimeType)}`;
+    }
+    return 'assets/placeholder.png';
+  }
+
+  private getImageExtension(mimeType?: string): string {
+    if (!mimeType) return '.jpg';
+    
+    const mimeTypeMap: { [key: string]: string } = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif'
+    };
+    
+    return mimeTypeMap[mimeType] || '.jpg';
+  }
+  
+  handleImageError(event: any): void {
+    if (event?.target) {
+      event.target.src = 'assets/placeholder.png';
+    }
+  }
+
+  getFormattedPrice(price: number): string {
+    return (price || 0).toFixed(2);
+  }
+
+  trackByItemId(index: number, item: WishlistItem): number {
+    return item.Id;
+  }
+
+  // Utility method to check if an item is being processed
+  isItemBeingProcessed(): boolean {
+    return this.isLoading || this.isRemoving;
+  }
+}
