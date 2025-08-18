@@ -41,8 +41,8 @@
       </button>
       <!-- Suggestions Dropdown -->
       <ul *ngIf="suggestions && suggestions.length > 0" class="suggestions-dropdown" style="position: absolute; top: 42px; left: 0; right: 0; z-index: 10; background: #fff; border-radius: 1em; box-shadow: 0 2px 8px rgba(34,197,94,0.08); list-style: none; margin: 0; padding: 0.5em 0;">
-        <li *ngFor="let suggestion of suggestions" (click)="searchTerm = suggestion.name; searchProducts()" style="padding: 0.5em 1em; cursor: pointer; color: #222;">
-          {{ suggestion.name }}
+        <li *ngFor="let suggestion of suggestions" (click)="searchTerm = suggestion['Build your own computer']; searchProducts()" style="padding: 0.5em 1em; cursor: pointer; color: #222;">
+          {{ suggestion['Build your own computer'] }}
         </li>
       </ul>
     </div>

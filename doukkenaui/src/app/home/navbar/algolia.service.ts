@@ -112,6 +112,7 @@ export class AlgoliaService {
         attributesToRetrieve: ['*'],
         attributesToHighlight: ['name'],
       });
+      console.log('Search suggestions:', results.hits[0]['Build your own computer']);
       return results.hits;
     } catch (error) {
       console.error('Algolia suggestions error:', error);

@@ -89,11 +89,15 @@ export class NavbarComponent implements OnInit, OnDestroy {
   
   async onInputChange(query: string) {
     if (query && query.length > 0) {
+      console.log('Search suggestions algolia:', this.suggestions);
       this.suggestions = await this.algoliaService.getSearchSuggestions(query);
+      this.suggestions.forEach((item: any, index: any) => {
+          console.log(item);
+        });
     } else {
       this.suggestions = [];
     }
-    console.log('Search suggestions:', this.suggestions);
+    //console.log('Search suggestions:', this.suggestions);
   }
 
   loadCategories() {
@@ -313,10 +317,34 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   searchProducts(): void {
-    if (this.searchTerm.trim()) {
-      this.searchEvent.emit(this.searchTerm);
-    }
+  if (this.searchTerm && this.searchTerm.trim()) {
+    console.log('Searching for:', this.searchTerm);
+    
+    // Make HTTP request to search API
+    this.https.get<any[]>(`https://localhost:59579/api/products/search?name=${encodeURIComponent(this.searchTerm.trim())}`)
+      .subscribe({
+        next: (products) => {
+          console.log('Search results:', products);
+          this.products = products || [];
+          
+          // You can also emit the results to parent component if needed
+          this.searchEvent.emit(this.searchTerm);
+          
+          // Optionally navigate to search results page or update UI
+          // this.router.navigate(['/search'], { queryParams: { q: this.searchTerm } });
+        },
+        error: (error) => {
+          console.error('Search error:', error);
+          this.products = [];
+          this.showNotification('Search failed. Please try again.', 'error');
+        }
+      });
+  } else {
+    // If search term is empty, you might want to show all products or clear results
+    this.products = [];
+    this.showAllProducts();
   }
+}
 
   getImageExtension(mimeType: string): string {
     if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
