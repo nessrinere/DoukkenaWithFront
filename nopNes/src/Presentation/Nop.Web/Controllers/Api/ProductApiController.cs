@@ -6,6 +6,7 @@ using Nop.Services.Vendors;
 using Nop.Services.Stores;
 using Nop.Services.Media;
 using System.Linq;
+using Nop.Data;
 
 namespace Nop.Web.Controllers.Api
 {
@@ -18,14 +19,19 @@ namespace Nop.Web.Controllers.Api
         private readonly IStoreContext _storeContext;
         private readonly IPictureService _pictureService;
         private readonly IProductAttributeService _productAttributeService;
+        protected readonly IRepository<Product> _productRepository;
 
-        public ProductApiController(IProductService productService, IVendorService vendorService, IStoreContext storeContext, IPictureService pictureService, IProductAttributeService productAttributeService)
+        public ProductApiController(IProductService productService,
+            IVendorService vendorService, IStoreContext storeContext, IPictureService pictureService, 
+            IProductAttributeService productAttributeService,
+            IRepository<Product> productRepository)
         {
             _productService = productService;
             _vendorService = vendorService;
             _storeContext = storeContext;
             _pictureService = pictureService;
             _productAttributeService = productAttributeService;
+            _productRepository = productRepository;
         }
 
         [HttpPost]
@@ -105,11 +111,9 @@ namespace Nop.Web.Controllers.Api
             if (string.IsNullOrWhiteSpace(name))
                 return BadRequest(new { message = "Search term is required." });
 
-            var products = await _productService.SearchProductsAsync(
-                keywords: name,
-                pageIndex: 0,
-                pageSize: 20
-            );
+            var products = await _productRepository.Table
+            .Where(p => p.Name.Contains(name)) // raw search
+            .ToListAsync();
 
             var result = products.Select(p => new {
                 p.Id,
