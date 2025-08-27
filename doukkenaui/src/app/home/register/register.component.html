@@ -1,0 +1,60 @@
+<!-- background overlay -->
+<div class="popup-overlay" (click)="closeModal()">
+
+  <!-- actual popup box -->
+  <div class="popup-container" (click)="$event.stopPropagation()">
+
+    <!-- Close Icon -->
+    <span class="close-icon" (click)="closeModal()">&#10005;</span>
+
+    <h2>Create Account</h2>
+    <p>Please fill in the details to register</p>
+
+    <form (ngSubmit)="onSubmit()" [formGroup]="registerForm">
+
+      <!-- Email Field -->
+      <label for="email">Email Address</label>
+      <input
+        id="email"
+        type="email"
+        formControlName="email"
+        placeholder="Enter your email"
+        [ngClass]="{'is-invalid': submittedLogin && f['email'].invalid}"
+      />
+      <div *ngIf="f['email'].invalid && (f['email'].touched || submittedLogin)" class="text-danger">
+        <div *ngIf="f['email'].errors?.['required']">Email is required.</div>
+        <div *ngIf="f['email'].errors?.['email']">Invalid email format.</div>
+      </div>
+
+      <!-- Password Field -->
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        formControlName="password"
+        placeholder="Enter your password"
+        [ngClass]="{'is-invalid': submittedLogin && f['password'].invalid}"
+      />
+      <div *ngIf="f['password'].invalid && (f['password'].touched || submittedLogin)" class="text-danger">
+        <div *ngIf="f['password'].errors?.['required']">Password is required.</div>
+        <div *ngIf="f['password'].errors?.['minlength']">Password must be at least 8 characters.</div>
+        <div *ngIf="f['password'].errors?.['pattern']">
+          Password must include an uppercase letter, a number, and a special character.
+        </div>
+      </div>
+      <label for="username">Username</label>
+      <input type="text" formControlName="username" placeholder="Username" />
+      <div *ngIf="f['username'].invalid && (f['username'].touched || submittedLogin)" class="text-danger">
+        <div *ngIf="f['username'].errors?.['required']">Username is required.</div>
+      </div>
+      <!-- Submit Button -->
+      <button type="submit" class="login-button">Register</button>
+    </form>
+
+  <div class="register-link">
+      <p>Already have an account? 
+        <a href="#" (click)="openLoginPopup(); $event.preventDefault()">Login here</a>
+      </p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,68 @@
+<!-- background overlay -->
+<div class="popup-overlay" (click)="closeModal()">
+
+  <!-- actual popup box -->
+  <div class="popup-container" (click)="$event.stopPropagation()">
+
+    <!-- Close Icon -->
+    <span class="close-icon" (click)="closeModal()">&#10005;</span>
+
+    <h2>Bienvenue</h2>
+    <p>Please login to your account</p>
+
+    <form (ngSubmit)="onSubmit()" [formGroup]="loginForm">
+
+      <!-- Email Field -->
+      <label for="email">Email Address</label>
+      <input
+        id="email"
+        type="email"
+        formControlName="username"
+        placeholder="Enter your email"
+        [ngClass]="{'is-invalid': submittedLogin && f['username'].invalid}"
+      />
+      <div *ngIf="f['username'].invalid && (f['username'].touched || submittedLogin)" class="text-danger">
+        <div *ngIf="f['username'].errors?.['required']">Email is required.</div>
+        <div *ngIf="f['username'].errors?.['email']">Invalid email format.</div>
+      </div>
+
+      <!-- Show error if email not found -->
+      <div *ngIf="emailNotFoundMessage" class="error-message">
+        {{ emailNotFoundMessage }}
+      </div>
+
+      <!-- Password Field -->
+      <label for="pass">Password</label>
+      <input
+        id="pass"
+        type="pass"
+        formControlName="pass"
+   
+        placeholder="Enter your password"
+        [ngClass]="{'is-invalid': submittedLogin && f['pass'].invalid}"
+      />
+      <div *ngIf="f['pass'].invalid && (f['pass'].touched || submittedLogin)" class="text-danger">
+        <div *ngIf="f['pass'].errors?.['required']">Password is required.</div>
+        <div *ngIf="f['pass'].errors?.['minlength']">Password must be at least 8 characters.</div>
+        <div *ngIf="f['pass'].errors?.['pattern']">
+          Password must include an uppercase letter, a number, and a special character.
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" class="login-button"[disabled]="loginForm.invalid"  >Login</button>
+    </form>
+    <!-- Register Component Link -->
+    <div class="register-link">
+      <p>Don't have an account? 
+        <a href="#" (click)="openRegisterPopup(); $event.preventDefault()">Sign up here</a>
+      </p>
+    </div>
+    
+    <!-- Register Component -->
+    <app-register *ngIf="showRegisterPopup" 
+                  (close)="showRegisterPopup = false" 
+                  (switchToLogin)="openLoginFromRegister()">
+    </app-register>
+  </div>
+

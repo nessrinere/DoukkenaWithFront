@@ -1,0 +1,192 @@
+<!-- Modern E-commerce Navbar -->
+<nav class="navbar">
+  <div class="navbar-container">
+    <!-- Logo -->
+    <div class="navbar-brand">
+      <a routerLink="/" class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">ShopHub</span>
+      </a>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="navbar-nav desktop-nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">
+        Home
+      </a>
+      <div class="nav-dropdown">
+        <button class="nav-link dropdown-toggle">
+          Categories
+          <svg class="dropdown-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        <div class="dropdown-menu">
+          <a routerLink="/category/electronics" class="dropdown-item">Electronics</a>
+          <a routerLink="/category/clothing" class="dropdown-item">Clothing</a>
+          <a routerLink="/category/home" class="dropdown-item">Home & Garden</a>
+          <a routerLink="/category/sports" class="dropdown-item">Sports</a>
+          <a routerLink="/category/books" class="dropdown-item">Books</a>
+        </div>
+      </div>
+      <a routerLink="/deals" routerLinkActive="active" class="nav-link">
+        Deals
+      </a>
+      <a routerLink="/about" routerLinkActive="active" class="nav-link">
+        About
+      </a>
+      <a routerLink="/contact" routerLinkActive="active" class="nav-link">
+        Contact
+      </a>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="navbar-search">
+      <div class="search-container">
+        <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input 
+          type="text" 
+          placeholder="Search products..." 
+          class="search-input"
+          [(ngModel)]="searchQuery"
+          (keyup.enter)="onSearch()"
+        >
+        <button class="search-btn" (click)="onSearch()">
+          Search
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Side Actions -->
+    <div class="navbar-actions">
+      <!-- Wishlist -->
+      <button class="action-btn" (click)="toggleWishlist()" title="Wishlist">
+        <svg class="action-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+        </svg>
+        <span class="action-badge" *ngIf="wishlistCount > 0">{{wishlistCount}}</span>
+      </button>
+
+      <!-- Cart -->
+      <button class="action-btn" (click)="toggleCart()" title="Shopping Cart">
+        <svg class="action-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+        </svg>
+        <span class="action-badge" *ngIf="cartCount > 0">{{cartCount}}</span>
+      </button>
+
+      <!-- User Menu -->
+      <div class="user-menu" *ngIf="isLoggedIn; else loginBtn">
+        <button class="action-btn" (click)="toggleUserMenu()" title="User Menu">
+          <img *ngIf="userAvatar" [src]="userAvatar" [alt]="userName" class="user-avatar">
+          <svg *ngIf="!userAvatar" class="action-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        <div class="dropdown-menu user-dropdown" *ngIf="showUserMenu">
+          <div class="dropdown-header">
+            <span class="user-name">{{userName}}</span>
+            <span class="user-email">{{userEmail}}</span>
+          </div>
+          <a routerLink="/profile" class="dropdown-item">
+            <svg class="dropdown-item-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+            Profile
+          </a>
+          <a routerLink="/orders" class="dropdown-item">
+            <svg class="dropdown-item-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+            </svg>
+            Orders
+          </a>
+          <a routerLink="/wishlist" class="dropdown-item">
+            <svg class="dropdown-item-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+            </svg>
+            Wishlist
+          </a>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item" (click)="logout()">
+            <svg class="dropdown-item-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
+            </svg>
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <ng-template #loginBtn>
+        <button class="btn btn-outline btn-sm" (click)="openLoginModal()">
+          Sign In
+        </button>
+      </ng-template>
+
+      <!-- Mobile Menu Toggle -->
+      <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" title="Menu">
+        <svg class="menu-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Navigation -->
+  <div class="mobile-nav" *ngIf="showMobileMenu">
+    <div class="mobile-nav-header">
+      <div class="mobile-search">
+        <input 
+          type="text" 
+          placeholder="Search products..." 
+          class="mobile-search-input"
+          [(ngModel)]="searchQuery"
+          (keyup.enter)="onSearch()"
+        >
+        <button class="mobile-search-btn" (click)="onSearch()">
+          <svg viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    
+    <div class="mobile-nav-links">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="mobile-nav-link" (click)="closeMobileMenu()">
+        Home
+      </a>
+      <a routerLink="/category/electronics" class="mobile-nav-link" (click)="closeMobileMenu()">
+        Electronics
+      </a>
+      <a routerLink="/category/clothing" class="mobile-nav-link" (click)="closeMobileMenu()">
+        Clothing
+      </a>
+      <a routerLink="/category/home" class="mobile-nav-link" (click)="closeMobileMenu()">
+        Home & Garden
+      </a>
+      <a routerLink="/deals" routerLinkActive="active" class="mobile-nav-link" (click)="closeMobileMenu()">
+        Deals
+      </a>
+      <a routerLink="/about" routerLinkActive="active" class="mobile-nav-link" (click)="closeMobileMenu()">
+        About
+      </a>
+      <a routerLink="/contact" routerLinkActive="active" class="mobile-nav-link" (click)="closeMobileMenu()">
+        Contact
+      </a>
+    </div>
+
+    <div class="mobile-nav-footer" *ngIf="!isLoggedIn">
+      <button class="btn btn-primary w-full" (click)="openLoginModal(); closeMobileMenu()">
+        Sign In
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Overlay for mobile menu -->
+<div class="mobile-overlay" *ngIf="showMobileMenu" (click)="closeMobileMenu()"></div> 
