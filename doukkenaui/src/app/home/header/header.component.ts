@@ -25,9 +25,9 @@ interface CartItem {
 }
 
 interface CartItemDto {
-  customerId: number;
-  productId: number;
-  quantity: number;
+  CustomerId: number;
+  ProductId: number;
+  Quantity: number;
 }
 
 interface Product {
@@ -434,9 +434,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
     const customerData = JSON.parse(customer);
     const cartItemDto: CartItemDto = {
-      customerId: customerData.id,
-      productId: productId,
-      quantity: quantity
+      CustomerId: customerData.id,
+      ProductId: productId,
+      Quantity: quantity
     };
 
     this.https.post(`${this.apiUrl}/cart/items/`, cartItemDto).subscribe({

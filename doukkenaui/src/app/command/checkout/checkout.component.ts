@@ -152,12 +152,13 @@ export class CheckoutComponent implements OnInit {
   }
 
   placeOrder() {
+    console.log('Placing order with form data:', this.shippingForm.value);
     if (this.shippingForm.invalid) {
       this.markFormGroupTouched(this.shippingForm);
       alert('Veuillez remplir tous les champs obligatoires correctement');
       return;
     }
-console.log('Placing order with form data:', this.shippingForm.value);
+    console.log('Placing order with form data:', this.shippingForm.value);
     const customer = localStorage.getItem('customer');
     if (!customer) {
       alert('Veuillez vous connecter pour passer une commande');
