@@ -79,7 +79,6 @@
         
         <!-- Wishlist Icon with Constructor-based functionality -->
         <div class="wishlist-container">
-          <h1>{{product.Id}}</h1>
           <i class="material-icons wishlist-icon" 
              [class.in-wishlist]="isInWishlist(product.Id)"
              [class.loading]="wishlistLoading[product.Id]"
