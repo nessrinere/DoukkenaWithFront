@@ -17,6 +17,7 @@ export interface WishlistItem {
   SeoFilename?: string;
   MimeType?: string;
   Quantity: number;
+  ProductId: number;
 }
 
 @Injectable({
@@ -70,6 +71,7 @@ export class WishlistService {
         })
       )
       .subscribe(items => {
+        console.log('Loaded wishlist items:', items);
         this.wishlistItemsSubject.next(items);
         this.calculateSummary(items);
       });
@@ -177,18 +179,32 @@ export class WishlistService {
     
     const cartItem = {
       customerId: customerId,
-      productId: item.Id,
+      productId: item.ProductId, // Use ProductId instead of Id
       quantity: item.Quantity || 1
     };
     
-    return this.http.post('https://localhost:59579/api/cart/add', cartItem)
+    console.log('Moving to cart:', cartItem); // Add debug log
+    
+    // Use the correct cart API endpoint
+    return this.http.post('https://localhost:59579/api/customers/cart/items', cartItem)
       .pipe(
         tap(() => {
-          // After successfully adding to cart, remove from wishlist
+          // After successfully adding to cart, remove from wishlist using Id
           this.removeFromWishlist(item.Id).subscribe();
+          
+          // Dispatch cart update event to refresh cart popup
+          window.dispatchEvent(new CustomEvent('cartUpdated', {
+            detail: { 
+              productAdded: true, 
+              productId: item.ProductId, // Use ProductId for the event too
+              quantity: item.Quantity || 1, 
+              timestamp: Date.now() 
+            }
+          }));
         }),
         catchError(error => {
           console.error('Error moving to cart:', error);
+          console.error('Error details:', error.error);
           throw error;
         })
       );
@@ -196,10 +212,49 @@ export class WishlistService {
   
   moveAllToCart(): Observable<any[]> {
     const currentItems = this.wishlistItemsSubject.getValue();
-    const moveOperations = currentItems.map(item => this.moveToCart(item));
+    const customerId = this.getCustomerId();
+    
+    if (!customerId) {
+      throw new Error('User not logged in');
+    }
+    
+    const moveOperations = currentItems.map(item => {
+      const cartItem = {
+        customerId: customerId,
+        productId: item.ProductId, // Use ProductId instead of Id
+        quantity: item.Quantity || 1
+      };
+      
+      console.log('Moving item to cart:', cartItem); // Add debug log
+      
+      // Use correct cart API endpoint
+      return this.http.post('https://localhost:59579/api/customers/cart/items', cartItem)
+        .pipe(
+          tap(() => {
+            // Dispatch cart update event for each item
+            window.dispatchEvent(new CustomEvent('cartUpdated', {
+              detail: { 
+                productAdded: true, 
+                productId: item.ProductId, // Use ProductId for the event
+                quantity: item.Quantity || 1, 
+                timestamp: Date.now() 
+              }
+            }));
+          }),
+          catchError(error => {
+            console.error(`Error adding item ${item.ProductId} to cart:`, error);
+            return of(null); // Continue with other items even if one fails
+          })
+        );
+    });
     
     // Return all operations as an array of observables
-    return forkJoin(moveOperations);
+    return forkJoin(moveOperations).pipe(
+      tap(() => {
+        // Clear wishlist after all items are moved
+        this.clearWishlist().subscribe();
+      })
+    );
   }
   
   isInWishlist(productId: number): boolean {

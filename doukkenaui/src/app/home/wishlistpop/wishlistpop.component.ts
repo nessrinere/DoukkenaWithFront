@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { WishlistService, WishlistItem } from '../../services/wishlist.service';
 
 @Component({
@@ -14,7 +16,7 @@ export class WishlistpopComponent implements OnInit, OnDestroy {
   @Output() itemAddedToCart = new EventEmitter<void>();
   @Output() wishlistToggled = new EventEmitter<boolean>();
   
-  wishlistItems: WishlistItem[] = [];
+  wishlistItems: any[] = [];  // Changed from 'any' to 'any[]' for consistency
   isLoading: boolean = false;
   errorMessage: string | null = null;
   isWishlistOpen: boolean = false;
@@ -22,12 +24,12 @@ export class WishlistpopComponent implements OnInit, OnDestroy {
   subtotal: number = 0;
   isLoggedIn: boolean = false;
   isRemoving: boolean = false;
-  
   private wishlistSubscription?: Subscription;
   
   constructor(
     private wishlistService: WishlistService,
-    private router: Router
+    private router: Router,
+    private https: HttpClient
   ) { }
 
   ngOnInit(): void {
@@ -47,6 +49,8 @@ export class WishlistpopComponent implements OnInit, OnDestroy {
     if (this.isLoggedIn && this.customerId) {
       this.loadWishlistItems();
     }
+    // Remove this line as wishlistItems1 is no longer needed
+    
   }
 
   private cleanup(): void {
@@ -58,14 +62,67 @@ export class WishlistpopComponent implements OnInit, OnDestroy {
   private subscribeToWishlist(): void {
     this.wishlistSubscription = this.wishlistService.wishlistItems$.subscribe({
       next: (items) => {
-        this.wishlistItems = items;
         this.totalItems = this.wishlistService.totalItems;
         this.subtotal = this.wishlistService.subtotal;
-        this.isLoading = false;
+        
+        // Load product pictures for wishlist items
+        if (items.length > 0) {
+          this.loadProductPictures(items);
+        } else {
+          this.wishlistItems = [];
+          this.isLoading = false;
+        }
       },
       error: (error) => {
         console.error('Error in wishlist subscription:', error);
         this.errorMessage = 'Failed to load wishlist items.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  private loadProductPictures(items: WishlistItem[]): void {
+    const pictureRequests = items.map(item => {
+      // Use item.ProductId (not item.Id) as that's the actual product ID
+      const productId = item.ProductId || item.Id;
+      
+      if (!productId) {
+        return of({ PictureId: 0, SeoFilename: 'default', MimeType: 'image/jpeg' });
+      }
+      
+      return this.https.get<any>(`https://localhost:59579/api/pictures/by-product/${productId}`).pipe(
+        catchError(err => {
+          console.error(`Failed to load picture for product ${productId}:`, err);
+          return of({ PictureId: 0, SeoFilename: 'default', MimeType: 'image/jpeg' });
+        })
+      );
+    });
+
+    forkJoin(pictureRequests).subscribe({
+      next: (pictures) => {
+        // Combine wishlist items with their picture information and assign to main wishlistItems
+        this.wishlistItems = items.map((item, index) => {
+          const pic = pictures[index];
+          
+          return {
+            ...item,
+            PictureId: pic?.PictureId ?? 0,
+            SeoFilename: pic?.SeoFilename ?? 'default',
+            MimeType: pic?.MimeType ?? 'image/jpeg'
+          };
+        });
+        
+        this.isLoading = false;
+      },
+      error: (err) => {
+        console.error('Error loading pictures:', err);
+        // Keep original items without picture updates
+        this.wishlistItems = items.map(item => ({
+          ...item,
+          PictureId: 0,
+          SeoFilename: 'default',
+          MimeType: 'image/jpeg'
+        }));
         this.isLoading = false;
       }
     });
@@ -307,23 +364,29 @@ export class WishlistpopComponent implements OnInit, OnDestroy {
   }
 
   getImageUrl(item: WishlistItem): string {
-    if (item.PictureId) {
-      return `https://localhost:59579/images/thumbs/${('0000000' + item.PictureId).slice(-7)}_${item.SeoFilename}${this.getImageExtension(item.MimeType)}`;
-    }
-    return 'assets/placeholder.png';
+    // Use the loaded picture information from loadProductPictures
+    const paddedId = ('0000000' + (item.PictureId || 0)).slice(-7);
+    const seoFilename = item.SeoFilename || 'default';
+    const extension = this.getImageExtension(item.MimeType || 'image/jpeg');
+    return `https://localhost:59579/images/thumbs/${paddedId}_${seoFilename}${extension}`;
   }
 
-  private getImageExtension(mimeType?: string): string {
-    if (!mimeType) return '.jpg';
+  private getImageExtension(mimeType: string): string {
+    if (!mimeType) return '.jpeg';
     
-    const mimeTypeMap: { [key: string]: string } = {
-      'image/jpeg': '.jpg',
-      'image/jpg': '.jpg',
-      'image/png': '.png',
-      'image/gif': '.gif'
-    };
-    
-    return mimeTypeMap[mimeType] || '.jpg';
+    switch (mimeType.toLowerCase()) {
+      case 'image/jpeg':
+      case 'image/jpg':
+        return '.jpeg';
+      case 'image/png':
+        return '.png';
+      case 'image/webp':
+        return '.webp';
+      case 'image/gif':
+        return '.gif';
+      default:
+        return '.jpeg';
+    }
   }
   
   handleImageError(event: any): void {

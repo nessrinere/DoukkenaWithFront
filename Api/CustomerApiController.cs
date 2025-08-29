@@ -29,9 +29,11 @@ namespace Nop.Web.Controllers.Api
         private readonly IWorkContext _workContext;
         private readonly IOrderService _orderService;
         private readonly IWorkflowMessageService _workflowMessageService;
+        private readonly IRepository<ShoppingCartItem> _shoppingCartItemRepository;
         public CustomerApiController(ICustomerService customerService, ICustomerRegistrationService customerRegistrationService,
             IProductService productService, IRepository<CustomerPassword> customerPasswordRepository,
-            IAuthenticationService authenticationService, IWorkContext workContext, IShoppingCartService shoppingCartService, IOrderService orderService, IWorkflowMessageService workflowMessageService)
+            IAuthenticationService authenticationService, IWorkContext workContext, IShoppingCartService shoppingCartService, IOrderService orderService, IWorkflowMessageService workflowMessageService,
+            IRepository<ShoppingCartItem> shoppingCartItemRepository)
         {
             _customerService = customerService;
             _customerRegistrationService = customerRegistrationService;
@@ -41,8 +43,8 @@ namespace Nop.Web.Controllers.Api
             _workContext = workContext;
             _shoppingCartService = shoppingCartService;
             _orderService = orderService;
-           
             _workflowMessageService = workflowMessageService;
+            _shoppingCartItemRepository = shoppingCartItemRepository;
         }
 
         [HttpGet("{id}")]
@@ -278,25 +280,31 @@ namespace Nop.Web.Controllers.Api
         {
             if (cartItems == null)
                 return BadRequest(new { message = "Cart is empty." });
+
             var customer = await _customerService.GetCustomerByIdAsync(cartItems.CustomerId);
             if (customer == null)
                 return NotFound(new { message = "Customer not found" });
-
 
             var product = await _productService.GetProductByIdAsync(cartItems.ProductId);
             if (product == null)
                 return NotFound(new { message = "Product not found" });
 
-            await _shoppingCartService.AddToCartAsync(
-                customer,
-                product,
-                ShoppingCartType.ShoppingCart,
-                storeId: 1, // You can use the actual store ID
-                quantity: cartItems.Quantity
-            );
+            var cartItem = new ShoppingCartItem
+            {
+                CustomerId = customer.Id,
+                ProductId = product.Id,
+                ShoppingCartType = ShoppingCartType.ShoppingCart,
+                StoreId = 1,
+                Quantity = cartItems.Quantity,
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
-            return Ok(new { message = " items saved successfully." });
+            await _shoppingCartItemRepository.InsertAsync(cartItem);
+
+            return Ok(new { message = "Item saved successfully (direct insert)." });
         }
+
         [HttpGet("cart/items/{customerId}")]
         public async Task<IActionResult> GetCartItemsByCustomerId(int customerId)
         {

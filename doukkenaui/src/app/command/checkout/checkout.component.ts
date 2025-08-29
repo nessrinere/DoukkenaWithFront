@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 // Interfaces for request DTOs
 interface CreateAddressRequest {
@@ -39,6 +41,9 @@ interface CartItem {
   ShortDescription: string;
   ImageUrl?: string;
   quantity?: number;
+  pictureId?: number;
+  seoFilename?: string;
+  mimeType?: string;
 }
 
 @Component({
@@ -65,7 +70,7 @@ export class CheckoutComponent implements OnInit {
   
   // Tax rate constant
   private readonly TAX_RATE = 0.07; // 7%
-  private readonly SHIPPING_COST = 0.0; // Fixed shipping cost
+  private readonly SHIPPING_COST = 9; // Fixed shipping cost
 
   constructor(private https: HttpClient, private fb: FormBuilder, private router: Router) {
     this.shippingForm = this.fb.group({
@@ -93,49 +98,131 @@ export class CheckoutComponent implements OnInit {
       this.https.get(`${this.apiUrl}/customers/cart/items/${customerId}`).subscribe({
         next: (response: any) => {
           if (Array.isArray(response)) {
-            this.cartItems = response.map(item => ({
+            const basicCartItems = response.map(item => ({
               Id: item.ProductId,
               Name: item.ProductName,
               Price: item.ProductPrice,
               ShortDescription: '',
-              ImageUrl: item.ProductImageUrl || `${this.apiUrl}/products/image/${item.ProductId}`,
-              quantity: item.Quantity
+              ImageUrl: '',
+              quantity: item.Quantity,
+              pictureId: 0,
+              seoFilename: 'default',
+              mimeType: 'image/jpeg'
             }));
+
+            // Load pictures for cart items
+            this.loadPicturesForCartItems(basicCartItems);
           }
         },
         error: (error) => {
           console.error('Error loading cart items:', error);
+          // Fallback to localStorage
+          const localCart = localStorage.getItem('guest_cart');
+          if (localCart) {
+            const localCartItems = JSON.parse(localCart);
+            this.loadPicturesForCartItems(localCartItems);
+          }
         }
       });
     } else {
-      const localCart = localStorage.getItem('cart');
+      const localCart = localStorage.getItem('guest_cart');
       if (localCart) {
-        this.cartItems = JSON.parse(localCart);
+        const localCartItems = JSON.parse(localCart);
+        this.loadPicturesForCartItems(localCartItems);
       }
     }
-   // console.log('Cart items loaded:', this.cartItems);
+  }
+
+  // Add the loadPicturesForCartItems method like in cartpop
+  loadPicturesForCartItems(cartItems: CartItem[]) {
+    if (cartItems.length === 0) {
+      this.cartItems = [];
+      return;
+    }
+
+    const pictureRequests = cartItems.map(item => {
+      return this.https.get<any>(`https://localhost:59579/api/pictures/by-product/${item.Id}`).pipe(
+        catchError(err => {
+          console.error(`Failed to load picture for product ${item.Id}:`, err);
+          return of({ PictureId: 0, SeoFilename: 'default', MimeType: 'image/jpeg' });
+        })
+      );
+    });
+
+    forkJoin(pictureRequests).subscribe({
+      next: (pictures) => {
+        this.cartItems = cartItems.map((item, index) => {
+          const picture = pictures[index];
+          return {
+            ...item,
+            pictureId: picture?.PictureId ?? 0,
+            seoFilename: picture?.SeoFilename ?? 'default',
+            mimeType: picture?.MimeType ?? 'image/jpeg'
+          };
+        });
+        
+        console.log('Cart items with pictures loaded:', this.cartItems);
+        console.log('Total amount:', this.getTotal());
+      },
+      error: (err) => {
+        console.error('Error loading pictures for cart items:', err);
+        this.cartItems = cartItems.map(item => ({
+          ...item,
+          pictureId: 0,
+          seoFilename: 'default',
+          mimeType: 'image/jpeg'
+        }));
+      }
+    });
   }
 
   getTotal(): number {
-    return this.cartItems.reduce((total, item) => {
-      return total + (item.Price * (item.quantity || 1));
+    if (!this.cartItems || this.cartItems.length === 0) {
+      console.log('No cart items found');
+      return 0;
+    }
+    
+    const total = this.cartItems.reduce((sum, item) => {
+      const price = parseFloat(item.Price?.toString() || '0');
+      const quantity = parseInt(item.quantity?.toString() || '1');
+      const itemTotal = price * quantity;
+      
+      console.log(`Item: ${item.Name}, Price: ${price}, Qty: ${quantity}, Total: ${itemTotal}`);
+      
+      return sum + itemTotal;
     }, 0);
+    
+    console.log('Cart total:', total);
+    return total;
   }
 
   // Add method to calculate tax (7% of subtotal)
   getTax(): number {
     const subtotal = this.getTotal();
-    return Math.round(subtotal * this.TAX_RATE * 100) / 100; // Round to 2 decimal places
+    const tax = Math.round(subtotal * (this.TAX_RATE || 0.07) * 100) / 100;
+    return tax;
   }
 
   // Add method to get shipping cost
   getShipping(): number {
-    return this.SHIPPING_COST;
+    return this.SHIPPING_COST || 9;
   }
 
   // Add method to calculate final total (subtotal + tax + shipping)
   getFinalTotal(): number {
-    return this.getTotal() + this.getTax() + this.getShipping();
+    const subtotal = this.getTotal();
+    const tax = this.getTax();
+    const shipping = this.getShipping();
+    
+    console.log('Final total calculation:', {
+      subtotal: subtotal,
+      tax: tax,
+      shipping: shipping,
+      total: subtotal + tax + shipping,
+      cartItems: this.cartItems
+    });
+    
+    return subtotal + tax + shipping;
   }
 
   // Direct API methods for OrderAPI
@@ -378,5 +465,30 @@ export class CheckoutComponent implements OnInit {
     }
     
     return 'Invalid input';
+  }
+
+  getImageUrl(item: CartItem): string {
+    const paddedId = ('0000000' + (item.pictureId || 0)).slice(-7);
+    const seoFilename = item.seoFilename || 'default';
+    const extension = this.getImageExtension(item.mimeType || 'image/jpeg');
+    return `https://localhost:59579/images/thumbs/${paddedId}_${seoFilename}${extension}`;
+  }
+
+  private getImageExtension(mimeType: string): string {
+    if (!mimeType) return '.jpeg';
+    
+    switch (mimeType.toLowerCase()) {
+      case 'image/jpeg':
+      case 'image/jpg':
+        return '.jpeg';
+      case 'image/png':
+        return '.png';
+      case 'image/webp':
+        return '.webp';
+      case 'image/gif':
+        return '.gif';
+      default:
+        return '.jpeg';
+    }
   }
 }

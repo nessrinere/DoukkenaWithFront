@@ -1,5 +1,3 @@
-
-
 <div class="checkout-page">
   <!-- Order Success Message with Invoice -->
   <div class="order-success" *ngIf="orderPlaced">
@@ -79,7 +77,11 @@
           <div class="table-row" *ngFor="let item of orderItems">
             <div class="col-item">
               <div class="item-info">
-                <img [src]="item.ImageUrl" [alt]="item.Name" class="item-image" *ngIf="item.ImageUrl">
+                <img 
+                  [src]="getImageUrl(item)" 
+                  [alt]="item.Name" 
+                  class="item-image"
+                >
                 <div class="item-details">
                   <p class="item-name">{{item.Name}}</p>
                   <p class="item-description" *ngIf="item.ShortDescription">{{item.ShortDescription}}</p>
@@ -435,7 +437,10 @@
         <div class="cart-items">
           <div class="cart-item" *ngFor="let item of cartItems">
             <div class="item-image">
-              <img [src]="item.ImageUrl || 'assets/images/placeholder.jpg'" [alt]="item.Name">
+              <img 
+                [src]="getImageUrl(item)" 
+                [alt]="item.Name"
+              >
               <div class="item-count">{{item.quantity || 1}}</div>
             </div>
             <div class="item-details">

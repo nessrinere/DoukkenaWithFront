@@ -34,6 +34,30 @@ public class WishlistController : ControllerBase
         _shoppingCartItemRepository = shoppingCartItemRepository;
     }
 
+    [HttpDelete("cart/remove/{productId}")]
+    public async Task<IActionResult> RemoveFromAllCarts(int productId)
+    {
+        if (productId <= 0)
+            return BadRequest(new { message = "Invalid product ID." });
+
+        // get all shopping cart items with this productId
+        var itemsToRemove = await _shoppingCartItemRepository.Table
+            .Where(x => x.ProductId == productId)
+            .ToListAsync();
+
+        if (!itemsToRemove.Any())
+            return NotFound(new { message = "No cart items found for this product." });
+
+        foreach (var item in itemsToRemove)
+        {
+            await _shoppingCartService.DeleteShoppingCartItemAsync(item);
+        }
+
+        return Ok(new { message = "All items with this product removed from carts and wishlists.", removedCount = itemsToRemove.Count });
+    }
+
+
+
     [HttpPost("add")]
     public async Task<IActionResult> AddToWishlist([FromBody] WishlistItemDto model)
     {

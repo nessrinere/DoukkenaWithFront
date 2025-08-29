@@ -311,123 +311,141 @@ export class ProductComponent implements OnInit {
     // Show cart popup
     this.showCartPopup = true;
     this.loadCartItems();
+    
+    // Emit event to notify navbar cart to reload
+    this.notifyCartUpdate();
   }
 
-    private addToLocalStorage(): void {
-      console.log('Starting addToLocalStorage method');
+  private notifyCartUpdate(): void {
+    console.log('Notifying cart update');
+    // Create and dispatch custom event to notify navbar and cart popup
+    const cartUpdateEvent = new CustomEvent('cartUpdated', {
+      detail: { 
+        productAdded: true,
+        timestamp: new Date().getTime()
+      }
+    });
+    window.dispatchEvent(cartUpdateEvent);
+  }
+
+  private saveItemToDatabase(productId: number, quantity: number): void {
+    // Validate input parameters
+    if (!productId || productId <= 0) {
+      console.error('Invalid product ID:', productId);
+      return;
+    }
+    
+    if (!quantity || quantity <= 0) {
+      console.error('Invalid quantity:', quantity);
+      return;
+    }
+
+    const customer = localStorage.getItem('customer');
+    if (!customer) {
+      console.log('User not logged in, saving to localStorage only');
+      this.addToLocalStorage();
+      return;
+    }
+
+    try {
+      const customerData = JSON.parse(customer);
+      console.log('Parsed customer data:', customerData);
       
-      if (!this.details || !this.details.Id) {
-        console.error('Invalid product details');
-        alert('Error: Product details are invalid');
+      if (!customerData.id) {
+        console.error('Customer ID not found in customer data');
+        alert('Error: Customer ID not found. Please try logging in again.');
         return;
       }
 
-      try {
-        const storedCart = localStorage.getItem('guest_cart');
-        let cartItems = [];
-        
-        if (storedCart) {
-          try {
-            cartItems = JSON.parse(storedCart);
-            if (!Array.isArray(cartItems)) {
-              console.error('Stored cart is not an array');
-              cartItems = [];
-            }
-          } catch (error) {
-            console.error('Error parsing stored cart:', error);
+      const cartItemDto: CartItemDto = {
+        customerId: customerData.id,
+        productId: productId,
+        quantity: quantity
+      };
+
+      console.log('Sending cart item to database:', cartItemDto);
+
+      this.http.post(`https://localhost:59579/api/customers/cart/items`, cartItemDto, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).subscribe({
+        next: (response: any) => {
+          console.log('API Response:', response);
+          console.log('Item saved to database:', response.message);
+          this.loadCartItems(); // Reload cart items after successful save
+          alert('Item added to cart successfully!');
+          
+          // Notify navbar cart to reload
+          this.notifyCartUpdate();
+        },
+        error: (error) => {
+          console.error('Error saving item to database:', error);
+          console.error('Error details:', error.error);
+          alert('Error saving item to cart. Please try again.');
+          // Fallback to localStorage if database save fails
+          this.addToLocalStorage();
+        }
+      });
+    } catch (error) {
+      console.error('Error processing customer data:', error);
+      alert('Error processing customer data. Please try logging in again.');
+    }
+  }
+
+  private addToLocalStorage(): void {
+    console.log('Starting addToLocalStorage method');
+    
+    if (!this.details || !this.details.Id) {
+      console.error('Invalid product details');
+      alert('Error: Product details are invalid');
+      return;
+    }
+
+    try {
+      const storedCart = localStorage.getItem('guest_cart');
+      let cartItems = [];
+      
+      if (storedCart) {
+        try {
+          cartItems = JSON.parse(storedCart);
+          if (!Array.isArray(cartItems)) {
+            console.error('Stored cart is not an array');
             cartItems = [];
           }
+        } catch (error) {
+          console.error('Error parsing stored cart:', error);
+          cartItems = [];
         }
-        
-        const existingItemIndex = cartItems.findIndex((item: any) => item.Id === this.details.Id);
-        
-        if (existingItemIndex > -1) {
-          // Item already exists, update quantity
-          cartItems[existingItemIndex].quantity = (cartItems[existingItemIndex].quantity || 1) + this.quantity;
-          console.log('Updated quantity for existing item:', cartItems[existingItemIndex]);
-        } else {
-          // New item, add to cart
-          const newItem = { 
-            ...this.details, 
-            quantity: this.quantity 
-          };
-          cartItems.push(newItem);
-          console.log('Added new item to cart:', newItem);
-        }
-        
-        localStorage.setItem('guest_cart', JSON.stringify(cartItems));
-        console.log('Cart saved to localStorage:', cartItems);
-        alert('Item added to cart successfully!');
-      } catch (error) {
-        console.error('Error saving to localStorage:', error);
-        alert('Error saving item to cart. Please try again.');
-      }
-    }
-
-    private saveItemToDatabase(productId: number, quantity: number): void {
-      console.log('Starting saveItemToDatabase method');
-      
-      // Validate input parameters
-      if (!productId || productId <= 0) {
-        console.error('Invalid product ID:', productId);
-        return;
       }
       
-      if (!quantity || quantity <= 0) {
-        console.error('Invalid quantity:', quantity);
-        return;
-      }
-
-      const customer = localStorage.getItem('customer');
-      if (!customer) {
-        console.log('User not logged in, saving to localStorage only');
-        this.addToLocalStorage();
-        return;
-      }
-
-      try {
-        const customerData = JSON.parse(customer);
-        console.log('Parsed customer data:', customerData);
-        
-        if (!customerData.id) {
-          console.error('Customer ID not found in customer data');
-          alert('Error: Customer ID not found. Please try logging in again.');
-          return;
-        }
-
-        const cartItemDto: CartItemDto = {
-          customerId: customerData.id,
-          productId: productId,
-          quantity: quantity
+      const existingItemIndex = cartItems.findIndex((item: any) => item.Id === this.details.Id);
+      
+      if (existingItemIndex > -1) {
+        // Item already exists, update quantity
+        cartItems[existingItemIndex].quantity = (cartItems[existingItemIndex].quantity || 1) + this.quantity;
+        console.log('Updated quantity for existing item:', cartItems[existingItemIndex]);
+      } else {
+        // New item, add to cart
+        const newItem = { 
+          ...this.details, 
+          quantity: this.quantity 
         };
-        
-        console.log('Sending cart item to API:', cartItemDto);
-        console.log('API URL:', `${this.apiUrl}/cart/items`); // Using customers API endpoint
-
-        this.http.post(`https://localhost:59579/api/customers/cart/items`, cartItemDto, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }).subscribe({
-          next: (response: any) => {
-            console.log('API Response:', response);
-            console.log('Item saved to database:', response.message);
-            this.loadCartItems(); // Reload cart items after successful save
-            alert('Item added to cart successfully!');
-          },
-          error: (error) => {
-            console.error('Error saving item to database:', error);
-            console.error('Error details:', error.error);
-            alert('Error saving item to cart. Please try again.');
-            // Fallback to localStorage if database save fails
-            this.addToLocalStorage();
-          }
-        });
-      } catch (error) {
-        console.error('Error processing customer data:', error);
-        alert('Error processing customer data. Please try logging in again.');
+        cartItems.push(newItem);
+        console.log('Added new item to cart:', newItem);
       }
+      
+      localStorage.setItem('guest_cart', JSON.stringify(cartItems));
+      console.log('Cart saved to localStorage:', cartItems);
+      alert('Item added to cart successfully!');
+      
+      // Notify navbar cart to reload
+      this.notifyCartUpdate();
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+      alert('Error saving item to cart. Please try again.');
     }
+  }
 
     buyNow(): void {
     // Add to cart first

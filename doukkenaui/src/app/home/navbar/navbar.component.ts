@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnInit, OnDestroy, Output, ViewChild } from '@angular/core';
+import { Component, EventEmitter, OnInit, OnDestroy, Output, ViewChild, HostListener } from '@angular/core';
 import { CartpopComponent } from '../cartpop/cartpop.component';
 import { WishlistpopComponent } from '../wishlistpop/wishlistpop.component';
 import { HttpClient } from '@angular/common/http';
@@ -61,21 +61,22 @@ export class NavbarComponent implements OnInit, OnDestroy {
     private algoliaService: AlgoliaService
   ) {}
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.loadCategories();
     this.checkLoginStatus();
     this.subscribeToWishlistChanges();
     
-    // Load initial wishlist data if logged in
-    if (this.isLoggedIn && this.customerId) {
-      this.loadWishlistItems();
-    }
+    // Listen for cart update events
+    this.setupCartUpdateListener();
   }
 
   ngOnDestroy(): void {
     if (this.wishlistSubscription) {
       this.wishlistSubscription.unsubscribe();
     }
+    
+    // Remove cart update listener
+    window.removeEventListener('cartUpdated', this.handleCartUpdate.bind(this));
   }
 
   private subscribeToWishlistChanges(): void {
@@ -260,11 +261,72 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
   }
 
+  private setupCartUpdateListener(): void {
+    // Listen for cart update events from product component
+    window.addEventListener('cartUpdated', this.handleCartUpdate.bind(this));
+  }
+
+  private handleCartUpdate = (event: any) => {
+    console.log('Cart update event received:', event.detail);
+    
+    // Force reload cart popup if it exists and is open
+    if (this.cartPopup) {
+      this.cartPopup.loadCartItems();
+    }
+    
+    // Update cart count
+    this.updateCartCount();
+  }
+
+  private updateCartCount(): void {
+    // Get cart count from localStorage or API
+    const customer = localStorage.getItem('customer');
+    
+    if (customer) {
+      // For logged-in users, get count from API
+      const customerData = JSON.parse(customer);
+      this.https.get(`https://localhost:59579/api/customers/${customerData.id}/cart/`).subscribe({
+        next: (response: any) => {
+          if (Array.isArray(response)) {
+            this.cartItemsCount = response.reduce((total, item) => total + (item.Quantity || 1), 0);
+          } else {
+            this.cartItemsCount = 0;
+          }
+        },
+        error: (error) => {
+          console.error('Error loading cart count:', error);
+          this.cartItemsCount = 0;
+        }
+      });
+    } else {
+      // For guest users, get count from localStorage
+      const localCart = localStorage.getItem('guest_cart');
+      if (localCart) {
+        try {
+          const cartItems = JSON.parse(localCart);
+          this.cartItemsCount = cartItems.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
+        } catch (error) {
+          this.cartItemsCount = 0;
+        }
+      } else {
+        this.cartItemsCount = 0;
+      }
+    }
+  }
+
   // Toggle cart
   toggleCart(): void {
     this.showCart = !this.showCart;
     
     if (this.showCart) {
+      if (this.cartPopup) {
+        this.cartPopup.toggleCart();
+        // Force reload cart items when opening cart
+        setTimeout(() => {
+          this.cartPopup.loadCartItems();
+        }, 100);
+      }
+    } else {
       if (this.cartPopup) {
         this.cartPopup.toggleCart();
       }

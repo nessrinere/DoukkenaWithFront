@@ -12,7 +12,7 @@ export class CartComponent implements OnInit {
 
   featuredProducts: any[] = [];
   productRatings: { [productId: number]: { rating: number; total: number } } = {};
-
+  productsWithPictures: any[] = [];
   constructor(private https: HttpClient) {}
 
   ngOnInit() {
@@ -38,7 +38,7 @@ export class CartComponent implements OnInit {
 
           forkJoin(pictureRequests).subscribe({
             next: (pictures) => {
-              const productsWithPictures = products.map((product, index) => {
+              this.productsWithPictures = products.map((product, index) => {
                 const pic = pictures[index];
                 
                 return {
@@ -48,8 +48,8 @@ export class CartComponent implements OnInit {
                   mimeType: pic?.mimeType ?? 'image/jpeg'
                 };
               });
-              
-              this.loadRatingsAndSort(productsWithPictures);
+
+              this.loadRatingsAndSort(this.productsWithPictures);
             },
             error: (err) => {
               console.error('Error loading pictures:', err);
@@ -67,6 +67,7 @@ export class CartComponent implements OnInit {
           this.featuredProducts = [];
         }
       });
+      console.log(this.productsWithPictures);
   }
 
   loadRatingsAndSort(products: any[]): void {
@@ -114,6 +115,7 @@ export class CartComponent implements OnInit {
           name: p.Name,
           rating: this.productRatings[p.Id]?.rating || 0
         })));
+        console.log(this.featuredProducts);
       },
       error: (err) => {
         console.error('Error loading ratings:', err);

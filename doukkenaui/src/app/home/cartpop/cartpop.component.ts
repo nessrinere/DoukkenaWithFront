@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import { Router } from '@angular/router';
@@ -44,40 +44,39 @@ export class CartpopComponent implements OnInit {
   ngOnInit() {
     this.loadCartItems();
     console.log(this.cartItems);
+    
+    // Listen for cart update events
+    this.setupCartUpdateListener();
   }
 
-  loadPicturesForCartItems(cartItems: CartItem[]) {
-    if (cartItems.length === 0) {
-      this.cartItems = [];
-      return;
+  private setupCartUpdateListener(): void {
+    // Listen for cart update events
+    window.addEventListener('cartUpdated', this.handleCartUpdate.bind(this));
+  }
+
+  private handleCartUpdate = (event: any) => {
+    console.log('Cart popup received update event:', event.detail);
+    // Immediately reload cart items when notified
+    this.loadCartItems();
+  }
+
+
+
+  private consolidateItems(items: CartItem[]): CartItem[] {
+    const map = new Map<number, CartItem>();
+    for (const it of items) {
+      const existing = map.get(it.Id);
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + (it.quantity || 1);
+      } else {
+        map.set(it.Id, { ...it, quantity: it.quantity || 1 });
+      }
     }
-
-    const pictureRequests = cartItems.map(item => {
-      return this.https.get<any>(`https://localhost:59579/api/pictures/by-product/${item.Id}`);
-    });
-
-    // Use forkJoin to wait for all picture requests to complete
-     forkJoin(pictureRequests).subscribe({
-       next: (pictures) => {
-         this.cartItems = cartItems.map((item, index) => {
-           const picture = pictures[index];
-           return {
-             ...item,
-             pictureId: picture?.PictureId ?? 0,
-             seoFilename: picture?.SeoFilename ?? 'default',
-             mimeType: picture?.mimeType ?? 'image/jpeg'
-           };
-         });
-       },
-       error: (err) => {
-         console.error('Error loading pictures for cart items:', err);
-         // Use cart items without pictures as fallback
-         this.cartItems = cartItems;
-       }
-     });
+    return Array.from(map.values());
   }
 
-  loadCartItems() {
+  // Make loadCartItems public so it can be called from navbar
+  public loadCartItems() {
     const customer = localStorage.getItem('customer');
     if (customer) {
       // Load from database for logged-in users
@@ -105,6 +104,8 @@ export class CartpopComponent implements OnInit {
 
             // Then fetch picture information for each item
             this.loadPicturesForCartItems(basicCartItems);
+            console.log("loadedCartPictures");
+            console.log(this.cartItems);
           } else {
             console.log('No items found in cart or unexpected response format');
             this.cartItems = [];
@@ -116,6 +117,7 @@ export class CartpopComponent implements OnInit {
         }
       });
     } else {
+      // Load from localStorage for guest users
       const storedCart = localStorage.getItem('guest_cart');
       if (storedCart) {
         this.cartItems = JSON.parse(storedCart);
@@ -126,54 +128,87 @@ export class CartpopComponent implements OnInit {
           }
           return item;
         });
+        
+        // Load pictures for localStorage items too
+        this.loadPicturesForCartItems(this.cartItems);
       }
     }
   }
 
-  // Fixed: Added missing saveItemToDatabase method
-  saveItemToDatabase(productId: number, quantity: number): void {
-    const customer = localStorage.getItem('customer');
-    if (!customer) {
-      console.log('User not logged in, saving to localStorage only');
+  loadPicturesForCartItems(cartItems: CartItem[]) {
+    const merged = this.consolidateItems(cartItems);
+    if (merged.length === 0) {
+      this.cartItems = [];
       return;
     }
+
+    const pictureRequests = merged.map(item => {
+      return this.https.get<any>(`https://localhost:59579/api/pictures/by-product/${item.Id}`);
+    });
+
+    // Use forkJoin to wait for all picture requests to complete
+     forkJoin(pictureRequests).subscribe({
+       next: (pictures) => {
+         this.cartItems = merged.map((item, index) => {
+           const picture = pictures[index];
+           return {
+             ...item,
+             pictureId: picture?.PictureId ?? 0,
+             seoFilename: picture?.SeoFilename ?? 'default',
+             mimeType: picture?.mimeType ?? 'image/jpeg'
+           };
+         });
+       },
+       error: (err) => {
+         console.error('Error loading pictures for cart items:', err);
+         // Use cart items without pictures as fallback
+         this.cartItems = merged;
+       }
+     });
+  }
+
+  // Fixed: Added missing saveItemToDatabase method
+  // Treat quantity param as a delta (change) for logged-in user (backend adds this value)
+  saveItemToDatabase(productId: number, quantityDelta: number): void {
+    const customer = localStorage.getItem('customer');
+    if (!customer) return;
 
     const customerData = JSON.parse(customer);
     const cartItemDto: CartItemDto = {
       customerId: customerData.id,
       productId: productId,
-      quantity: quantity
+      quantity: quantityDelta // delta (+1 or -1 or initial amount)
     };
 
     this.https.post(`${this.apiUrl}/cart/items`, cartItemDto).subscribe({
-      next: (response: any) => {
-        console.log('Item saved to database:', response.message);
-        this.removeFromLocalStorage(productId);
+      next: () => {
+        // Do not remove from local list here; we keep local state updated already
       },
-      error: (error) => {
-        console.error('Error saving item to database:', error);
-      }
+      error: (error) => console.error('Error updating item (delta) in database:', error)
     });
   }
 
   // Fixed: Added missing addToCart method
   addToCart(item: CartItem, quantity: number = 1): void {
-    console.log("Adding item to cart");
     const customer = localStorage.getItem('customer');
     if (customer) {
-      // User is logged in - save to database
+      const existing = this.cartItems.find(ci => ci.Id === item.Id);
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + quantity;
+      } else {
+        this.cartItems.push({ ...item, quantity });
+      }
+      this.cartItems = this.consolidateItems(this.cartItems);
+      // Send only the delta (quantity just added), NOT the new total
       this.saveItemToDatabase(item.Id, quantity);
     } else {
-      // User is guest - save to localStorage
-      const existingItemIndex = this.cartItems.findIndex(cartItem => cartItem.Id === item.Id);
-      if (existingItemIndex > -1) {
-        // Item already exists, update quantity
-        this.cartItems[existingItemIndex].quantity = (this.cartItems[existingItemIndex].quantity || 1) + quantity;
+      const existing = this.cartItems.find(ci => ci.Id === item.Id);
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + quantity;
       } else {
-        // New item, add to cart
-        this.cartItems.push({ ...item, quantity: quantity });
+        this.cartItems.push({ ...item, quantity });
       }
-
+      this.cartItems = this.consolidateItems(this.cartItems);
       this.saveCartItems();
     }
   }
@@ -183,18 +218,15 @@ export class CartpopComponent implements OnInit {
     const customer = localStorage.getItem('customer');
     if (!customer) return;
 
-    // Load items from localStorage first
     const storedCart = localStorage.getItem('guest_cart');
     if (storedCart) {
       const localCartItems = JSON.parse(storedCart);
-      
       localCartItems.forEach((item: CartItem) => {
         if (item.quantity && item.quantity > 0) {
+          // For migration we send full quantity as initial add
           this.saveItemToDatabase(item.Id, item.quantity);
         }
       });
-
-      // Clear localStorage after migration
       localStorage.removeItem('guest_cart');
       this.cartItems = [];
     }
@@ -203,33 +235,22 @@ export class CartpopComponent implements OnInit {
   // Fixed: Added missing updateQuantity method
   updateQuantity(id: number, change: number) {
     const customer = localStorage.getItem('customer');
-    
+    const item = this.cartItems.find(ci => ci.Id === id);
+    if (!item) return;
+
+    const newQuantity = (item.quantity || 1) + change;
+    if (newQuantity < 1) {
+      this.removeItem(id);
+      return;
+    }
+
+    item.quantity = newQuantity;
+    this.cartItems = this.consolidateItems(this.cartItems);
+
     if (customer) {
-      // For logged-in users, update in database
-      const item = this.cartItems.find(item => item.Id === id);
-      if (item) {
-        const newQuantity = (item.quantity || 1) + change;
-        if (newQuantity > 0) {
-          // Update the item quantity and save to database
-          item.quantity = newQuantity;
-          this.saveItemToDatabase(id, newQuantity);
-        } else {
-          // Remove item if quantity becomes 0 or negative
-          this.removeItem(id);
-        }
-      }
+      // Send only the delta (+1 / -1)
+      this.saveItemToDatabase(id, change);
     } else {
-      // For guest users, update localStorage
-      this.cartItems = this.cartItems.map(item => {
-        if (item.Id === id) {
-          const newQuantity = (item.quantity || 1) + change;
-          return {
-            ...item,
-            quantity: newQuantity > 0 ? newQuantity : 1
-          };
-        }
-        return item;
-      });
       this.saveCartItems();
     }
   }
@@ -240,24 +261,50 @@ export class CartpopComponent implements OnInit {
   }
 
   saveCartItems() {
+    this.cartItems = this.consolidateItems(this.cartItems);
     localStorage.setItem('guest_cart', JSON.stringify(this.cartItems));
   }
 
   toggleCart() {
     this.isOpen = !this.isOpen;
+    
+    // Reload items when cart is opened
+    if (this.isOpen) {
+      this.loadCartItems();
+    }
   }
 
-  removeItem(id: number) {
+  removeItem(productId: number) {
+    const item = this.cartItems.find(ci => ci.Id === productId);
+    if (!item) return;
+
+    // Optimistically remove locally
+    this.cartItems = this.cartItems.filter(ci => ci.Id !== productId);
+
     const customer = localStorage.getItem('customer');
-    
-    if (customer) {
-      // For logged-in users, delete from database
-      this.deleteItemFromDatabase(id);
-    } else {
-      // For guest users, remove from localStorage
-      this.cartItems = this.cartItems.filter(item => item.Id !== id);
+    if (!customer) {
+      // Guest: just persist local change
       this.saveCartItems();
+      window.dispatchEvent(new CustomEvent('cartUpdated', {
+        detail: { productRemoved: true, productId, timestamp: Date.now() }
+      }));
+      return;
     }
+
+    // Logged-in: call global removal endpoint (removes all occurrences in all carts)
+    this.https.delete(`https://localhost:59579/api/wishlist/cart/remove/${productId}`).subscribe({
+      next: (res: any) => {
+        console.log('Global remove response:', res);
+        window.dispatchEvent(new CustomEvent('cartUpdated', {
+          detail: { productRemoved: true, productId, removedCount: res?.removedCount, timestamp: Date.now() }
+        }));
+      },
+      error: (err) => {
+        console.error('Global remove failed, reverting local state', err);
+        // Optional: reload to resync
+        this.loadCartItems();
+      }
+    });
   }
 
   // New method to delete item from database
@@ -293,6 +340,7 @@ export class CartpopComponent implements OnInit {
   getImageUrl(item: CartItem): string {
     const paddedId = ('0000000' + item.pictureId).slice(-7);
     const extension = this.getImageExtension(item.mimeType);
+    console.log(item)
     return `https://localhost:59579/images/thumbs/${paddedId}_${item.seoFilename}${extension}`;
   }
 
